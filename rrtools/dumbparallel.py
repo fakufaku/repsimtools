@@ -41,40 +41,7 @@ data_file = 'data.json'
 param_file = 'parameters.json'
 args_file = 'arguments.json'
 
-def json_append(filename, entry):
-    '''
-    This function incrementally add entries to a json file
-    while keeping the format correct
-
-    Parameters
-    ----------
-    filename: str
-        the name of the JSON file
-    entry:
-        the new entry to append
-    '''
-    import json
-
-    with open(filename, 'at') as f:
-
-        if f.tell() == 0:
-            # first write, add array
-            json.dump([entry], f, indent=0)
-
-        else:
-            # remove last character ']' and '\n'
-            f.seek(f.tell() - 2, 0)
-            f.truncate()
-
-            # add missing comma to previous element
-            f.write(',\n')
-
-            # dump the latest entry
-            json.dump(entry, f, indent=0)
-
-            # close the json file
-            f.write('\n]')
-
+from .tools import get_git_hash, json_append, InvalidGitRepositoryError, DirtyGitRepositoryError
 
 def run(func_parallel_loop, func_gen_args, func_init=None, base_dir=None, results_dir=None, description=None):
     '''
@@ -111,6 +78,10 @@ def run(func_parallel_loop, func_gen_args, func_init=None, base_dir=None, result
     elif not os.path.isabs(results_dir):
         results_dir = os.path.join(base_dir, results_dir)
 
+    # create results directory if it doesn't exist
+    if not os.path.exists(results_dir):
+        os.mkdir(results_dir)
+
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('-d', '--dir', type=str, help='directory to store sim results')
     parser.add_argument('-p', '--profile', type=str, help='ipython profile of cluster')
@@ -128,28 +99,23 @@ def run(func_parallel_loop, func_gen_args, func_init=None, base_dir=None, result
     parameter_file = cli_args.parameters
 
     # Check the state of the github repository
-    try:
-        repo = git.Repo(base_dir, search_parent_directories=True)
-        if repo.is_dirty():
+    if dummy_flag:
+        tag = 'dummy'
+
+    else:
+        # Not a dummy run, try to get the git hash
+        try:
+            tag = get_git_hash(base_dir, length=10)
+
+        except DirtyGitRepositoryError:
             if test_flag:
                 import warnings
                 warnings.warn('The git repo has uncommited modifications. Going ahead for test.')
+                tag = 'test'
             else:
                 raise ValueError('The git repo has uncommited modifications. Aborting simulation.')
-    except git.InvalidGitRepositoryError:
-        repo = None
 
-
-    # tag with git sha, or test
-    if dummy_flag:
-        tag = 'dummy'
-    elif test_flag:
-        tag = 'test'
-    else:
-        if repo is not None:
-            # 10 first digits of sha
-            tag = repo.head.commit.hexsha[:10]
-        else:
+        except InvalidGitRepositoryError:
             tag = ''
 
     # get all the parameters
@@ -178,13 +144,8 @@ def run(func_parallel_loop, func_gen_args, func_init=None, base_dir=None, result
     data_file_name = os.path.join(data_dir, data_file)
 
     # create directory if it doesn't exist
-    try:
+    if not os.path.exists(data_dir):
         os.mkdir(data_dir)
-    except:
-        if not os.path.exists(data_dir):
-            raise ValueError('Couldn''t create the data directory')
-        else:
-            pass
 
     # add a few practical things to the parameters
     parameters['_git_sha'] = tag
