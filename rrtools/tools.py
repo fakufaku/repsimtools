@@ -13,7 +13,7 @@ def get_git_hash(directory, length=10):
     This function will check the state of the git repository.
 
     * If there is no repo, an InvalidGitRepositoryError is raised.
-    * If the repo is dirty, a DirtyRepositoryException is rasied.
+    * If the repo is dirty, a DirtyRepositoryException is raised.
     * If none of the above applies, the hash of the HEAD commit is returned.
 
     Parameters

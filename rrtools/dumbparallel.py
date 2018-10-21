@@ -296,7 +296,7 @@ def run(func_parallel_loop, func_gen_args, func_init=None, base_dir=None, result
                 if ar.progress > NC and n_remaining > NC:
 
                     # estimate remaining time
-                    rate = ar.progress / ellapsed  # tasks per second
+                    rate = ellapsed / ar.progress  # tasks per second
                     delta_finish_min = int(rate * n_remaining / 60) + 1
 
                     tdelta = datetime.timedelta(minutes=delta_finish_min)
