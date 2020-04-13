@@ -1,5 +1,5 @@
-Reproducible Research Tools
-===========================
+Reproducible Simulation Tools
+=============================
 
 This is a helper tool to quickly build large dumb parallel simulation or
 processing in a reproducible way.
