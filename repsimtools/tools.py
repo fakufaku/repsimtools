@@ -1,5 +1,7 @@
 import json
-from git import Repo, InvalidGitRepositoryError
+
+from git import InvalidGitRepositoryError, Repo
+
 
 class DirtyGitRepositoryError(Exception):
     def __init__(self, value):
@@ -8,8 +10,9 @@ class DirtyGitRepositoryError(Exception):
     def __str__(self):
         return repr(self.parameter)
 
+
 def get_git_hash(directory, length=10):
-    '''
+    """
     This function will check the state of the git repository.
 
     * If there is no repo, an InvalidGitRepositoryError is raised.
@@ -22,18 +25,20 @@ def get_git_hash(directory, length=10):
         The path to the directory to check.
     length: int
         The number of characters of the hash to return (default 10).
-    '''
+    """
 
     # Check the state of the github repository
     repo = Repo(directory, search_parent_directories=True)
     if repo.is_dirty():
-        raise DirtyGitRepositoryError('The git repo has uncommited modifications. Aborting simulation.')
+        raise DirtyGitRepositoryError(
+            "The git repo has uncommited modifications. Aborting simulation."
+        )
     else:
         return repo.head.commit.hexsha[:length]
 
 
 def json_append(filename, entry):
-    '''
+    """
     This function incrementally add entries to a json file
     while keeping the format correct
 
@@ -43,10 +48,10 @@ def json_append(filename, entry):
         the name of the JSON file
     entry:
         the new entry to append
-    '''
+    """
     import json
 
-    with open(filename, 'at') as f:
+    with open(filename, "at") as f:
 
         if f.tell() == 0:
             # first write, add array
@@ -58,12 +63,10 @@ def json_append(filename, entry):
             f.truncate()
 
             # add missing comma to previous element
-            f.write(',\n')
+            f.write(",\n")
 
             # dump the latest entry
             json.dump(entry, f, indent=0)
 
             # close the json file
-            f.write('\n]')
-
-
+            f.write("\n]")

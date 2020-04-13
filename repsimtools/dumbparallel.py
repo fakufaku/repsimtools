@@ -1,4 +1,4 @@
-'''
+"""
 This script provides a wrapper for code to be run in parallel. Using this
 wrapper provides the following advantages:
 
@@ -24,27 +24,42 @@ define the following:
 Dependencies:
 * gitpython
 * ipyparallel
-'''
+"""
 from __future__ import division, print_function
 
-import argparse, datetime
-import os, time, git, json, sys
+import argparse
 import collections
+import datetime
+import json
 import math
+import os
+import sys
+import time
 
-data_dir_format = '{date}_{name}{tag}/'
-data_file_format = 'data_{pid}.json'
-error_file_format = 'error_{pid}.json'
+import git
+
+from .tools import (DirtyGitRepositoryError, InvalidGitRepositoryError,
+                    get_git_hash, json_append)
+
+data_dir_format = "{date}_{name}{tag}/"
+data_file_format = "data_{pid}.json"
+error_file_format = "error_{pid}.json"
 
 data_dir = None
-data_file = 'data.json'
-param_file = 'parameters.json'
-args_file = 'arguments.json'
+data_file = "data.json"
+param_file = "parameters.json"
+args_file = "arguments.json"
 
-from .tools import get_git_hash, json_append, InvalidGitRepositoryError, DirtyGitRepositoryError
 
-def run(func_parallel_loop, func_gen_args, func_init=None, base_dir=None, results_dir=None, description=None):
-    '''
+def run(
+    func_parallel_loop,
+    func_gen_args,
+    func_init=None,
+    base_dir=None,
+    results_dir=None,
+    description=None,
+):
+    """
     Runs the simulation
 
     Parameters
@@ -63,18 +78,18 @@ def run(func_parallel_loop, func_gen_args, func_init=None, base_dir=None, result
         The name of the directory where to save results
     description: str, optional
         A short description of the simulation for the help function
-    '''
+    """
     import os, json
 
     if description is None:
-        description = 'Generic simulation script'
+        description = "Generic simulation script"
 
     if base_dir is None:
-        base_dir = './'
+        base_dir = "./"
     base_dir = os.path.abspath(base_dir)
 
     if results_dir is None:
-        results_dir = os.path.join(base_dir, 'data/')
+        results_dir = os.path.join(base_dir, "data/")
     elif not os.path.isabs(results_dir):
         results_dir = os.path.join(base_dir, results_dir)
 
@@ -83,12 +98,28 @@ def run(func_parallel_loop, func_gen_args, func_init=None, base_dir=None, result
         os.mkdir(results_dir)
 
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('-d', '--dir', type=str, help='directory to store sim results')
-    parser.add_argument('-p', '--profile', type=str, help='ipython profile of cluster')
-    parser.add_argument('-t', '--test', action='store_true', help='test mode, runs a single loop of the simulation')
-    parser.add_argument('-s', '--serial', action='store_true', help='run in a serial loop, ipyparallel not called')
-    parser.add_argument('--dummy', action='store_true', help='tags the directory as dummy, can be used for running small batches')
-    parser.add_argument('parameters', type=str, help='JSON file containing simulation parameters')
+    parser.add_argument("-d", "--dir", type=str, help="directory to store sim results")
+    parser.add_argument("-p", "--profile", type=str, help="ipython profile of cluster")
+    parser.add_argument(
+        "-t",
+        "--test",
+        action="store_true",
+        help="test mode, runs a single loop of the simulation",
+    )
+    parser.add_argument(
+        "-s",
+        "--serial",
+        action="store_true",
+        help="run in a serial loop, ipyparallel not called",
+    )
+    parser.add_argument(
+        "--dummy",
+        action="store_true",
+        help="tags the directory as dummy, can be used for running small batches",
+    )
+    parser.add_argument(
+        "parameters", type=str, help="JSON file containing simulation parameters"
+    )
 
     cli_args = parser.parse_args()
     ipcluster_profile = cli_args.profile
@@ -100,7 +131,7 @@ def run(func_parallel_loop, func_gen_args, func_init=None, base_dir=None, result
 
     # Check the state of the github repository
     if dummy_flag:
-        tag = 'dummy'
+        tag = "dummy"
 
     else:
         # Not a dummy run, try to get the git hash
@@ -110,35 +141,42 @@ def run(func_parallel_loop, func_gen_args, func_init=None, base_dir=None, result
         except DirtyGitRepositoryError:
             if test_flag:
                 import warnings
-                warnings.warn('The git repo has uncommited modifications. Going ahead for test.')
-                tag = 'test'
+
+                warnings.warn(
+                    "The git repo has uncommited modifications. Going ahead for test."
+                )
+                tag = "test"
             else:
-                raise ValueError('The git repo has uncommited modifications. Aborting simulation.')
+                raise ValueError(
+                    "The git repo has uncommited modifications. Aborting simulation."
+                )
 
         except InvalidGitRepositoryError:
-            tag = ''
+            tag = ""
 
     # get all the parameters
-    with open(parameter_file, 'r') as f:
+    with open(parameter_file, "r") as f:
         parameters = json.load(f)
 
     # if no name is given, use the parameters file name
-    if 'name' not in parameters:
+    if "name" not in parameters:
         name = os.path.splitext(os.path.basename(parameter_file))[0]
-        parameters['name'] = name
+        parameters["name"] = name
     else:
-        name = parameters['name']
+        name = parameters["name"]
 
     # record date and time
     date = time.strftime("%Y%m%d-%H%M%S")
 
     # for convenient access to parameters:
-    p = collections.namedtuple('Struct', parameters.keys())(*parameters.values())
+    p = collections.namedtuple("Struct", parameters.keys())(*parameters.values())
 
     # Save the result to a directory
     if data_dir_name is None:
-        ttag = '_' + tag if tag != '' else tag
-        data_dir = os.path.join(results_dir, data_dir_format.format(date=date, name=name, tag=ttag))
+        ttag = "_" + tag if tag != "" else tag
+        data_dir = os.path.join(
+            results_dir, data_dir_format.format(date=date, name=name, tag=ttag)
+        )
     else:
         data_dir = data_dir_name
     data_file_name = os.path.join(data_dir, data_file)
@@ -148,11 +186,11 @@ def run(func_parallel_loop, func_gen_args, func_init=None, base_dir=None, result
         os.mkdir(data_dir)
 
     # add a few practical things to the parameters
-    parameters['_git_sha'] = tag
-    parameters['_date'] = date
-    parameters['_base_dir'] = base_dir
-    parameters['_results_dir'] = data_dir
-    parameters['_parallel'] = not serial_flag
+    parameters["_git_sha"] = tag
+    parameters["_date"] = date
+    parameters["_base_dir"] = base_dir
+    parameters["_results_dir"] = data_dir
+    parameters["_parallel"] = not serial_flag
 
     # Save the arguments in a json file
     param_file_name = os.path.join(data_dir, param_file)
@@ -175,97 +213,112 @@ def run(func_parallel_loop, func_gen_args, func_init=None, base_dir=None, result
 
     # There is the option to only run one loop for test
     if test_flag:
-        print('Running one test loop only.')
+        print("Running one test loop only.")
         arguments = arguments[:2]
 
     # Prepare a few things for the status line
     n_tasks = len(arguments)
     digits = int(math.log10(n_tasks) + 1)
-    dformat = '{:' + str(digits) + 'd}'
-    status_line = ('   ' + dformat + '/' 
-            + dformat + (' tasks done. '
-                        'Forecast end {:>20s}. '
-                        'Ellapsed: {:>8s} Remaining: {:>8s}'))
+    dformat = "{:" + str(digits) + "d}"
+    status_line = (
+        "   "
+        + dformat
+        + "/"
+        + dformat
+        + (
+            " tasks done. "
+            "Forecast end {:>20s}. "
+            "Ellapsed: {:>8s} Remaining: {:>8s}"
+        )
+    )
 
-    print('/!\\ the time estimate will only be correct '
-          'when all tasks take about the same time to finish /!\\')
+    print(
+        "/!\\ the time estimate will only be correct "
+        "when all tasks take about the same time to finish /!\\"
+    )
 
-    forecast = 'NA'
-    time_remaining = 'NA'
-
+    forecast = "NA"
+    time_remaining = "NA"
 
     # Main processing loop
     if serial_flag:
         # add parameters to builtins so that it is accessible in the namespace
         # of the calling script
         import builtins
+
         builtins.parameters = parameters
 
-        print('Running everything in a serial loop.')
+        print("Running everything in a serial loop.")
 
         # record start timestamp
         then = time.time()
         start_time = datetime.datetime.now()
 
         # Serial processing
-        for i,ag in enumerate(arguments):
+        for i, ag in enumerate(arguments):
             result = func_parallel_loop(ag)
 
             # save the new result!
             json_append(data_file_name, result)
 
             # Now format some timing estimation
-            n_remaining = n_tasks - (i+1)
+            n_remaining = n_tasks - (i + 1)
 
             ellapsed = int(time.time() - then)
-            ellapsed_fmt = '{:02}:{:02}:{:02}'.format(
-                    ellapsed // 3600, ellapsed % 3600 // 60, ellapsed % 60)
+            ellapsed_fmt = "{:02}:{:02}:{:02}".format(
+                ellapsed // 3600, ellapsed % 3600 // 60, ellapsed % 60
+            )
 
             # estimate remaining time
             if ellapsed > 0:
-                rate = (i+1) / ellapsed  # tasks per second
+                rate = (i + 1) / ellapsed  # tasks per second
                 delta_finish_min = int(rate * n_remaining / 60) + 1
 
                 tdelta = datetime.timedelta(minutes=delta_finish_min)
                 end_date = datetime.datetime.now() + tdelta
 
                 # convert to strings
-                forecast = end_date.strftime('%Y-%m-%d %H:%M:%S')
+                forecast = end_date.strftime("%Y-%m-%d %H:%M:%S")
                 s = int(tdelta.total_seconds())
-                time_remaining = '{:02}:{:02}:{:02}'.format(s // 3600, s % 3600 // 60, s % 60)
+                time_remaining = "{:02}:{:02}:{:02}".format(
+                    s // 3600, s % 3600 // 60, s % 60
+                )
 
-            formatted_status_line = status_line.format(i+1, n_tasks, 
-                    forecast, ellapsed_fmt, time_remaining)
-            print(formatted_status_line, end='\r')
+            formatted_status_line = status_line.format(
+                i + 1, n_tasks, forecast, ellapsed_fmt, time_remaining
+            )
+            print(formatted_status_line, end="\r")
 
         # clean the output
-        print(' ' * len(formatted_status_line))
+        print(" " * len(formatted_status_line))
 
         all_loops = int(time.time() - then)
-        all_loops_format = '{:02}:{:02}:{:02}'.format(
-                all_loops // 3600, all_loops % 3600 // 60, all_loops % 60)
+        all_loops_format = "{:02}:{:02}:{:02}".format(
+            all_loops // 3600, all_loops % 3600 // 60, all_loops % 60
+        )
 
-        print('Total actual processing time: {} ({} s)'.format(all_loops_format, all_loops))
-
+        print(
+            "Total actual processing time: {} ({} s)".format(
+                all_loops_format, all_loops
+            )
+        )
 
     else:
         # Parallel processing code
         import ipyparallel as ip
 
-        print('Using ipyparallel processing.')
+        print("Using ipyparallel processing.")
 
         # Start the parallel processing
         c = ip.Client(profile=ipcluster_profile)
         NC = len(c.ids)
-        print(NC, 'workers on the job')
+        print(NC, "workers on the job")
 
         # Clear the engines namespace
         c.clear(block=True)
 
         # Push the global config to the workers
-        var_space = dict(
-                parameters = parameters,
-                )
+        var_space = dict(parameters=parameters,)
         c[:].push(var_space, block=True)
 
         # record start timestamp
@@ -290,8 +343,9 @@ def run(func_parallel_loop, func_gen_args, func_init=None, base_dir=None, result
                 n_remaining = n_tasks - ar.progress
 
                 ellapsed = int(time.time() - then)
-                ellapsed_fmt = '{:02}:{:02}:{:02}'.format(
-                        ellapsed // 3600, ellapsed % 3600 // 60, round(ellapsed % 60))
+                ellapsed_fmt = "{:02}:{:02}:{:02}".format(
+                    ellapsed // 3600, ellapsed % 3600 // 60, round(ellapsed % 60)
+                )
 
                 if ar.progress > NC and n_remaining > NC:
 
@@ -303,18 +357,21 @@ def run(func_parallel_loop, func_gen_args, func_init=None, base_dir=None, result
                     end_date = datetime.datetime.now() + tdelta
 
                     # convert to strings
-                    forecast = end_date.strftime('%Y-%m-%d %H:%M:%S')
+                    forecast = end_date.strftime("%Y-%m-%d %H:%M:%S")
                     s = int(tdelta.total_seconds())
-                    time_remaining = '{:02}:{:02}:{:02}'.format(s // 3600, s % 3600 // 60, s % 60)
+                    time_remaining = "{:02}:{:02}:{:02}".format(
+                        s // 3600, s % 3600 // 60, s % 60
+                    )
 
-                formatted_status_line = status_line.format(ar.progress, n_tasks, 
-                        forecast, ellapsed_fmt, time_remaining)
-                print(formatted_status_line, end='\r')
+                formatted_status_line = status_line.format(
+                    ar.progress, n_tasks, forecast, ellapsed_fmt, time_remaining
+                )
+                print(formatted_status_line, end="\r")
 
             # clean the output
-            print(' ' * len(formatted_status_line))
+            print(" " * len(formatted_status_line))
 
-            print('Show all output from nodes, if any:')
+            print("Show all output from nodes, if any:")
             ar.display_outputs()
 
         except:
@@ -322,15 +379,21 @@ def run(func_parallel_loop, func_gen_args, func_init=None, base_dir=None, result
             # and abort all the jobs scheduled
 
             import traceback
+
             traceback.print_exc()
 
-            print('Aborting all remaining jobs...')
+            print("Aborting all remaining jobs...")
             c.abort(block=True)
 
         all_loops = int(time.time() - then)
-        all_loops_format = '{:02}:{:02}:{:02}'.format(
-                all_loops // 3600, all_loops % 3600 // 60, all_loops % 60)
+        all_loops_format = "{:02}:{:02}:{:02}".format(
+            all_loops // 3600, all_loops % 3600 // 60, all_loops % 60
+        )
 
-        print('Total actual processing time: {} ({} s)'.format(all_loops_format, all_loops))
+        print(
+            "Total actual processing time: {} ({} s)".format(
+                all_loops_format, all_loops
+            )
+        )
 
-    print('Saved data to folder: ' + data_dir)
+    print("Saved data to folder: " + data_dir)

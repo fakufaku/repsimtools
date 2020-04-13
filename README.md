@@ -151,6 +151,21 @@ The JSON file contains global simulation parameters.
     }
 
 
+Control the Number of Threads
+-----------------------------
+
+When using outer loop level parallelism, it is important that the inner loop does not
+use parallel processing. When using numpy for the processing, it is thus important to
+disable multi-threading in the BLAS library used. This can be achieved by setting
+the number of threads to one using environment variables.
+
+* Openblas `OPENBLAS_NUM_THREADS=1`
+* MKL `MKL_NUM_THREADS=1` or directly in the code using the `mkl.set_num_threads(1)` function.
+
+If not, the outer threads might compete with the inner threads for resources,
+and the overall simulation becomes very slow. Resource usage is most efficient
+when sufficiently many outer loops can run in parallel.
+
 Author
 ------
 
